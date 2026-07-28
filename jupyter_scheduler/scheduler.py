@@ -631,7 +631,7 @@ class Scheduler(BaseScheduler):
             if query.create_time:
                 definitions = definitions.filter(JobDefinition.create_time >= query.create_time)
             if query.name:
-                definitions = definitions.filter(JobDefinition.name.like(f"{query.name}%"))
+                definitions = definitions.filter(JobDefinition.name.like(f"%{query.name}%"))
             if query.tags:
                 definitions = definitions.filter(
                     and_(JobDefinition.tags.contains(tag) for tag in query.tags)

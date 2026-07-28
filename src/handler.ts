@@ -496,6 +496,7 @@ export namespace Scheduler {
   }
 
   export interface IListJobDefinitionsQuery {
+    name?: string;
     sort_by?: ISortField[];
     max_items?: number;
     next_token?: string;

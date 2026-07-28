@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 
 import { JupyterFrontEnd } from '@jupyterlab/application';
-import { Alert, Button, Box, Stack, Tab, Tabs } from '@mui/material';
+import { Alert, Button, Box, Stack, Tab, Tabs, TextField } from '@mui/material';
 
 import { Heading } from '../components/heading';
 import { useEventLogger, useTranslator } from '../hooks';
@@ -202,6 +202,23 @@ function ListJobDefinitionsTable(props: ListJobDefinitionsTableProps) {
   const log = useEventLogger();
   const [jobDefsQuery, setJobDefsQuery] =
     useState<Scheduler.IListJobDefinitionsQuery>({});
+  const [searchText, setSearchText] = useState<string>('');
+
+  // Debounce: push the search term into the API query 300ms after typing stops
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setJobDefsQuery(query => {
+        const newQuery = { ...query };
+        if (searchText) {
+          newQuery.name = searchText;
+        } else {
+          delete newQuery.name;
+        }
+        return newQuery;
+      });
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchText]);
   const [deletedRows, setDeletedRows] = useState<
     Set<Scheduler.IDescribeJobDefinition['job_definition_id']>
   >(new Set());
@@ -247,7 +264,15 @@ function ListJobDefinitionsTable(props: ListJobDefinitionsTableProps) {
   ];
 
   const reloadButton = (
-    <Cluster justifyContent="flex-end">
+    <Cluster justifyContent="space-between">
+      <TextField
+        size="small"
+        placeholder={trans.__('Search job definitions…')}
+        value={searchText}
+        onChange={e => setSearchText(e.target.value)}
+        sx={{ minWidth: '250px' }}
+        inputProps={{ 'aria-label': trans.__('Search job definitions') }}
+      />
       <Button
         variant="contained"
         size="small"
