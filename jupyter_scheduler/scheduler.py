@@ -10,9 +10,8 @@ from jupyter_core.paths import jupyter_data_dir
 from jupyter_server.transutils import _i18n
 from jupyter_server.utils import to_os_path
 from sqlalchemy import and_, asc, desc, func
-from traitlets import Instance
+from traitlets import Instance, Unicode, default
 from traitlets import Type as TType
-from traitlets import Unicode, default
 from traitlets.config import LoggingConfigurable
 
 from jupyter_scheduler.environments import EnvironmentManager
@@ -92,7 +91,11 @@ class BaseScheduler(LoggingConfigurable):
     )
 
     def __init__(
-        self, root_dir: str, environments_manager: Type[EnvironmentManager], config=None, **kwargs
+        self,
+        root_dir: str,
+        environments_manager: Type[EnvironmentManager],
+        config=None,
+        **kwargs,
     ):
         super().__init__(config=config, **kwargs)
         self.root_dir = root_dir
@@ -172,15 +175,21 @@ class BaseScheduler(LoggingConfigurable):
         """Returns job definition record for a single job definition"""
         raise NotImplementedError("must be implemented by subclass")
 
-    def list_job_definitions(self, query: ListJobDefinitionsQuery) -> ListJobDefinitionsResponse:
+    def list_job_definitions(
+        self, query: ListJobDefinitionsQuery
+    ) -> ListJobDefinitionsResponse:
         """Returns list of all job definitions filtered by query"""
         raise NotImplementedError("must be implemented by subclass")
 
-    def create_job_from_definition(self, job_definition_id: str, model: CreateJobFromDefinition):
+    def create_job_from_definition(
+        self, job_definition_id: str, model: CreateJobFromDefinition
+    ):
         """Creates a new job based on a job definition"""
         raise NotImplementedError("must be implemented by subclass")
 
-    def get_staging_paths(self, model: Union[DescribeJob, DescribeJobDefinition]) -> Dict[str, str]:
+    def get_staging_paths(
+        self, model: Union[DescribeJob, DescribeJobDefinition]
+    ) -> Dict[str, str]:
         """Returns full staging paths for all job files
 
         Notes
@@ -340,7 +349,9 @@ class Scheduler(BaseScheduler):
 
     db_url = Unicode(help=_i18n("Scheduler database url"))
 
-    task_runner = Instance(allow_none=True, klass="jupyter_scheduler.task_runner.BaseTaskRunner")
+    task_runner = Instance(
+        allow_none=True, klass="jupyter_scheduler.task_runner.BaseTaskRunner"
+    )
 
     def __init__(
         self,
@@ -351,7 +362,10 @@ class Scheduler(BaseScheduler):
         **kwargs,
     ):
         super().__init__(
-            root_dir=root_dir, environments_manager=environments_manager, config=config, **kwargs
+            root_dir=root_dir,
+            environments_manager=environments_manager,
+            config=config,
+            **kwargs,
         )
         self.db_url = db_url
         if self.task_runner_class:
@@ -376,7 +390,9 @@ class Scheduler(BaseScheduler):
             raise InputUriError(model.input_uri)
 
         input_path = os.path.join(self.root_dir, model.input_uri)
-        if not self.execution_manager_class.validate(self.execution_manager_class, input_path):
+        if not self.execution_manager_class.validate(
+            self.execution_manager_class, input_path
+        ):
             raise SchedulerError(
                 """There is no kernel associated with the notebook. Please open
                     the notebook, select a kernel, and re-submit the job to execute.
@@ -430,7 +446,9 @@ class Scheduler(BaseScheduler):
 
     def update_job(self, job_id: str, model: UpdateJob):
         with self.db_session() as session:
-            session.query(Job).filter(Job.job_id == job_id).update(model.dict(exclude_none=True))
+            session.query(Job).filter(Job.job_id == job_id).update(
+                model.dict(exclude_none=True)
+            )
             session.commit()
 
     def list_jobs(self, query: ListJobsQuery) -> ListJobsResponse:
@@ -452,7 +470,9 @@ class Scheduler(BaseScheduler):
 
             if query.sort_by:
                 for sort_field in query.sort_by:
-                    direction = desc if sort_field.direction == SortDirection.desc else asc
+                    direction = (
+                        desc if sort_field.direction == SortDirection.desc else asc
+                    )
                     jobs = jobs.order_by(direction(getattr(Job, sort_field.name)))
             next_token = int(query.next_token) if query.next_token else 0
             jobs = jobs.limit(query.max_items).offset(next_token)
@@ -480,7 +500,9 @@ class Scheduler(BaseScheduler):
     def count_jobs(self, query: CountJobsQuery) -> int:
         with self.db_session() as session:
             count = (
-                session.query(func.count(Job.job_id)).filter(Job.status == query.status).scalar()
+                session.query(func.count(Job.job_id))
+                .filter(Job.status == query.status)
+                .scalar()
             )
             return count if count else 0
 
@@ -515,7 +537,9 @@ class Scheduler(BaseScheduler):
             job = DescribeJob.from_orm(job_record)
             process_id = job_record.pid
             if process_id and job.status == Status.IN_PROGRESS:
-                session.query(Job).filter(Job.job_id == job_id).update({"status": Status.STOPPING})
+                session.query(Job).filter(Job.job_id == job_id).update(
+                    {"status": Status.STOPPING}
+                )
                 session.commit()
 
                 current_process = psutil.Process()
@@ -534,13 +558,17 @@ class Scheduler(BaseScheduler):
             if not self.file_exists(model.input_uri):
                 raise InputUriError(model.input_uri)
 
-            job_definition = JobDefinition(**model.dict(exclude_none=True, exclude={"input_uri"}))
+            job_definition = JobDefinition(
+                **model.dict(exclude_none=True, exclude={"input_uri"})
+            )
             session.add(job_definition)
             session.commit()
 
             job_definition_id = job_definition.job_definition_id
 
-            staging_paths = self.get_staging_paths(DescribeJobDefinition.from_orm(job_definition))
+            staging_paths = self.get_staging_paths(
+                DescribeJobDefinition.from_orm(job_definition)
+            )
             self.copy_input_file(model.input_uri, staging_paths["input"])
 
         if self.task_runner and job_definition.schedule:
@@ -554,7 +582,9 @@ class Scheduler(BaseScheduler):
                 JobDefinition.job_definition_id == job_definition_id
             )
 
-            describe_job_definition = DescribeJobDefinition.from_orm(filtered_query.one())
+            describe_job_definition = DescribeJobDefinition.from_orm(
+                filtered_query.one()
+            )
 
             if (
                 (
@@ -567,7 +597,10 @@ class Scheduler(BaseScheduler):
                 )
                 and describe_job_definition.schedule == model.schedule
                 and describe_job_definition.timezone == model.timezone
-                and (model.active == None or describe_job_definition.active == model.active)
+                and (
+                    model.active == None
+                    or describe_job_definition.active == model.active
+                )
             ):
                 return
 
@@ -624,14 +657,20 @@ class Scheduler(BaseScheduler):
 
         return DescribeJobDefinition.from_orm(job_definition)
 
-    def list_job_definitions(self, query: ListJobDefinitionsQuery) -> ListJobDefinitionsResponse:
+    def list_job_definitions(
+        self, query: ListJobDefinitionsQuery
+    ) -> ListJobDefinitionsResponse:
         with self.db_session() as session:
             definitions = session.query(JobDefinition)
 
             if query.create_time:
-                definitions = definitions.filter(JobDefinition.create_time >= query.create_time)
+                definitions = definitions.filter(
+                    JobDefinition.create_time >= query.create_time
+                )
             if query.name:
-                definitions = definitions.filter(JobDefinition.name.like(f"%{query.name}%"))
+                definitions = definitions.filter(
+                    JobDefinition.name.ilike(f"%{query.name}%")
+                )
             if query.tags:
                 definitions = definitions.filter(
                     and_(JobDefinition.tags.contains(tag) for tag in query.tags)
@@ -641,7 +680,9 @@ class Scheduler(BaseScheduler):
 
             if query.sort_by:
                 for sort_field in query.sort_by:
-                    direction = desc if sort_field.direction == SortDirection.desc else asc
+                    direction = (
+                        desc if sort_field.direction == SortDirection.desc else asc
+                    )
                     definitions = definitions.order_by(
                         direction(getattr(JobDefinition, sort_field.name))
                     )
@@ -656,7 +697,8 @@ class Scheduler(BaseScheduler):
 
         list_response = ListJobDefinitionsResponse(
             job_definitions=[
-                DescribeJobDefinition.from_orm(definition) for definition in definitions or []
+                DescribeJobDefinition.from_orm(definition)
+                for definition in definitions or []
             ],
             next_token=next_token,
             total_count=total,
@@ -664,18 +706,28 @@ class Scheduler(BaseScheduler):
 
         return list_response
 
-    def create_job_from_definition(self, job_definition_id: str, model: CreateJobFromDefinition):
+    def create_job_from_definition(
+        self, job_definition_id: str, model: CreateJobFromDefinition
+    ):
         job_id = None
         definition = self.get_job_definition(job_definition_id)
         if definition:
             input_uri = self.get_staging_paths(definition)["input"]
-            attributes = definition.dict(exclude={"schedule", "timezone"}, exclude_none=True)
-            attributes = {**attributes, **model.dict(exclude_none=True), "input_uri": input_uri}
+            attributes = definition.dict(
+                exclude={"schedule", "timezone"}, exclude_none=True
+            )
+            attributes = {
+                **attributes,
+                **model.dict(exclude_none=True),
+                "input_uri": input_uri,
+            }
             job_id = self.create_job(CreateJob(**attributes))
 
         return job_id
 
-    def get_staging_paths(self, model: Union[DescribeJob, DescribeJobDefinition]) -> Dict[str, str]:
+    def get_staging_paths(
+        self, model: Union[DescribeJob, DescribeJobDefinition]
+    ) -> Dict[str, str]:
         staging_paths = {}
         if not model:
             return staging_paths
@@ -688,7 +740,9 @@ class Scheduler(BaseScheduler):
             )
             staging_paths[output_format] = os.path.join(self.staging_path, id, filename)
 
-        staging_paths["input"] = os.path.join(self.staging_path, id, model.input_filename)
+        staging_paths["input"] = os.path.join(
+            self.staging_path, id, model.input_filename
+        )
 
         return staging_paths
 
@@ -702,7 +756,9 @@ class ArchivingScheduler(Scheduler):
         config=True,
     )
 
-    def get_staging_paths(self, model: Union[DescribeJob, DescribeJobDefinition]) -> Dict[str, str]:
+    def get_staging_paths(
+        self, model: Union[DescribeJob, DescribeJobDefinition]
+    ) -> Dict[str, str]:
         staging_paths = {}
         if not model:
             return staging_paths
@@ -722,7 +778,9 @@ class ArchivingScheduler(Scheduler):
             id,
             create_output_filename(model.input_filename, model.create_time, "tar.gz"),
         )
-        staging_paths["input"] = os.path.join(self.staging_path, id, model.input_filename)
+        staging_paths["input"] = os.path.join(
+            self.staging_path, id, model.input_filename
+        )
 
         return staging_paths
 
@@ -788,35 +846,49 @@ class SchedulerWithErrors(Scheduler):
 
     def create_job_definition(self, model: CreateJobDefinition) -> str:
         if self._should_raise_error():
-            raise SchedulerError("Failed create job definition because of a deliberate exception.")
+            raise SchedulerError(
+                "Failed create job definition because of a deliberate exception."
+            )
         else:
             return super().create_job_definition(model)
 
     def update_job_definition(self, job_definition_id: str, model: UpdateJobDefinition):
         if self._should_raise_error():
-            raise SchedulerError("Failed update job definition because of a deliberate exception.")
+            raise SchedulerError(
+                "Failed update job definition because of a deliberate exception."
+            )
         else:
             super().update_job_definition(job_definition_id, model)
 
     def delete_job_definition(self, job_definition_id: str):
         if self._should_raise_error():
-            raise SchedulerError("Failed delete job definition because of a deliberate exception.")
+            raise SchedulerError(
+                "Failed delete job definition because of a deliberate exception."
+            )
         else:
             super().delete_job_definition(job_definition_id)
 
     def get_job_definition(self, job_definition_id: str) -> DescribeJobDefinition:
         if self._should_raise_error():
-            raise SchedulerError("Failed get job definition because of a deliberate exception.")
+            raise SchedulerError(
+                "Failed get job definition because of a deliberate exception."
+            )
         else:
             return super().get_job_definition(job_definition_id)
 
-    def list_job_definitions(self, query: ListJobDefinitionsQuery) -> ListJobDefinitionsResponse:
+    def list_job_definitions(
+        self, query: ListJobDefinitionsQuery
+    ) -> ListJobDefinitionsResponse:
         if self._should_raise_error():
-            raise SchedulerError("Failed list job definitions because of a deliberate exception.")
+            raise SchedulerError(
+                "Failed list job definitions because of a deliberate exception."
+            )
         else:
             return super().list_job_definitions(query)
 
-    def create_job_from_definition(self, job_definition_id: str, model: CreateJobFromDefinition):
+    def create_job_from_definition(
+        self, job_definition_id: str, model: CreateJobFromDefinition
+    ):
         if self._should_raise_error():
             raise SchedulerError("Failed list jobs because of a deliberate exception.")
         else:
