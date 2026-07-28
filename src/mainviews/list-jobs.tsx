@@ -39,6 +39,23 @@ export function ListJobsTable(props: IListJobsTableProps): JSX.Element {
   const [deletedRows, setDeletedRows] = useState<
     Set<Scheduler.IDescribeJob['job_id']>
   >(new Set());
+  const [searchText, setSearchText] = useState<string>('');
+
+  // Debounce: push the search term into the API query 300ms after typing stops
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setJobsQuery(query => {
+        const newQuery = { ...query };
+        if (searchText) {
+          newQuery.name = searchText;
+        } else {
+          delete newQuery.name;
+        }
+        return newQuery;
+      });
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchText]);
   const [displayError, setDisplayError] = useState<React.ReactNode | null>(
     null
   );
@@ -72,7 +89,15 @@ export function ListJobsTable(props: IListJobsTableProps): JSX.Element {
   }, []);
 
   const reloadButton = (
-    <Cluster justifyContent="flex-end">
+    <Cluster justifyContent="space-between">
+      <TextField
+        size="small"
+        placeholder={trans.__('Search jobs…')}
+        value={searchText}
+        onChange={e => setSearchText(e.target.value)}
+        sx={{ minWidth: '250px' }}
+        inputProps={{ 'aria-label': trans.__('Search jobs') }}
+      />
       <Button
         variant="contained"
         size="small"

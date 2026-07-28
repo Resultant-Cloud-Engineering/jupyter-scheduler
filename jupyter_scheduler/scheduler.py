@@ -462,7 +462,7 @@ class Scheduler(BaseScheduler):
             if query.start_time:
                 jobs = jobs.filter(Job.start_time >= query.start_time)
             if query.name:
-                jobs = jobs.filter(Job.name.like(f"{query.name}%"))
+                jobs = jobs.filter(Job.name.ilike(f"%{query.name}%"))
             if query.tags:
                 jobs = jobs.filter(and_(Job.tags.contains(tag) for tag in query.tags))
 
